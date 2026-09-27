@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FILE SYSTEM: ВРЯТУЙ ДИСК</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+:root {
+    --bg: #07111f;
+    --bg2: #0d1b2e;
+    --card: rgba(15, 31, 51, .88);
+    --card2: rgba(20, 42, 68, .8);
+    --line: rgba(148, 163, 184, .18);
+    --text: #f8fafc;
+    --muted: #94a3b8;
+    --blue: #38bdf8;
+    --cyan: #22d3ee;
+    --purple: #a78bfa;
+    --green: #34d399;
+    --yellow: #facc15;
+    --red: #fb7185;
+    --orange: #fb923c;
+}
+
+html, body {
+    width: 100vw;
+    height: 100vh;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+body {
+    font-family: Inter, Arial, sans-serif;
+    color: var(--text);
+    background:
+        radial-gradient(circle at 10% 10%, rgba(56,189,248,.12), transparent 30%),
+        radial-gradient(circle at 90% 20%, rgba(167,139,250,.12), transparent 30%),
+        linear-gradient(135deg, #020617, #07111f 45%, #0b1628);
+}
+
+button, input { font: inherit; }
+button { cursor: pointer; }
+
+.app {
+    width: 100%;
+    height: 100vh;
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    background: rgba(2, 6, 23, 0.94);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+    backdrop-filter: blur(8px);
+}
+
+.modal-card {
+    background: linear-gradient(145deg, rgba(15, 31, 51, .98), rgba(8, 21, 37, .98));
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 30px;
+    width: min(480px, 90%);
+    box-shadow: 0 25px 80px rgba(0,0,0,.5);
+    text-align: center;
+}
+
+.modal-card h2 { margin-top: 0; font-size: 24px; }
+.modal-card p { color: var(--muted); font-size: 14px; margin-bottom: 20px; }
+
+.start-input {
+    width: 100%;
+    padding: 12px 16px;
+    border-radius: 12px;
+    border: 1px solid var(--line);
+    background: #020617;
+    color: #e2e8f0;
+    outline: none;
+    font-size: 15px;
+    margin-bottom: 16px;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
+    flex-shrink: 0;
+}
+
+.logo { display: flex; align-items: center; gap: 10px; }
+.logo-icon {
+    width: 40px; height: 40px; border-radius: 12px;
+    display: grid; place-items: center; font-size: 20px;
+    background: linear-gradient(135deg, var(--blue), var(--purple));
+}
+.logo h1 { margin: 0; font-size: 18px; letter-spacing: -.5px; }
+.logo p { margin: 0; color: var(--muted); font-size: 11px; }
+
+.user-display { font-size: 13px; color: var(--cyan); font-weight: 700; }
+.stats { display: flex; gap: 8px; }
+.stat {
+    min-width: 80px; padding: 6px 10px; border: 1px solid var(--line);
+    border-radius: 10px; background: rgba(15, 23, 42, .7); text-align: center;
+}
+.stat-label { display: block; color: var(--muted); font-size: 10px; }
+.stat-value { font-size: 15px; font-weight: 800; }
+
+.progress-wrap {
+    padding: 8px 12px; border: 1px solid var(--line);
+    border-radius: 12px; background: rgba(15, 23, 42, .6); flex-shrink: 0;
+}
+.progress-top { display: flex; justify-content: space-between; margin-bottom: 4px; color: var(--muted); font-size: 11px; }
+.progress { height: 6px; border-radius: 99px; background: #172338; overflow: hidden; }
+.progress-bar {
+    height: 100%; width: 0%; border-radius: inherit;
+    background: linear-gradient(90deg, var(--cyan), var(--blue), var(--purple));
+    transition: width .4s ease;
+}
+
+.levels { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; flex-shrink: 0; }
+.level {
+    border: 1px solid var(--line); background: rgba(15, 23, 42, .7);
+    border-radius: 10px; padding: 6px; color: var(--muted); text-align: center;
+}
+.level.active { color: white; border-color: rgba(56,189,248,.5); background: rgba(14, 116, 144, .15); }
+.level.done { border-color: rgba(52,211,153,.4); background: rgba(16,185,129,.1); color: #a7f3d0; }
+.level-num { font-weight: 900; font-size: 13px; }
+.level-name { display: block; font-size: 10px; }
+
+.game-card {
+    flex: 1;
+    border: 1px solid var(--line);
+    background: linear-gradient(145deg, rgba(15, 31, 51, .96), rgba(8, 21, 37, .96));
+    border-radius: 18px;
+    padding: 16px 20px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.25);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    overflow-y: auto;
+}
+
+.level-header { display: flex; justify-content: space-between; gap: 10px; align-items: center; margin-bottom: 10px; }
+.level-header h2 { margin: 0; font-size: 18px; }
+.level-header p { color: var(--muted); margin: 0; font-size: 12px; }
+
+.badge {
+    padding: 4px 10px; border-radius: 99px; font-size: 11px; font-weight: 800;
+    background: rgba(56,189,248,.1); color: var(--blue); border: 1px solid rgba(56,189,248,.25);
+}
+
+.question-number { color: var(--cyan); font-size: 11px; font-weight: 800; margin-bottom: 4px; }
+.question h3 { margin: 0; font-size: 16px; line-height: 1.3; }
+.answers { display: grid; gap: 8px; margin-top: 10px; }
+.answer {
+    width: 100%; text-align: left; color: var(--text); background: rgba(30, 41, 59, .7);
+    border: 1px solid var(--line); padding: 10px 14px; border-radius: 10px; font-size: 13px; transition: .2s;
+}
+.answer:hover { border-color: rgba(56,189,248,.45); background: rgba(30, 64, 95, .6); }
+.answer.correct { border-color: rgba(52,211,153,.7); background: rgba(16,185,129,.15); }
+.answer.wrong { border-color: rgba(251,113,133,.7); background: rgba(244,63,94,.13); }
+.answer.disabled { pointer-events: none; }
+
+.feedback { display: none; padding: 8px 12px; margin-top: 8px; border-radius: 10px; font-size: 12px; }
+.feedback.show { display: block; }
+.feedback.correct { background: rgba(16,185,129,.1); border: 1px solid rgba(52,211,153,.25); color: #a7f3d0; }
+.feedback.wrong { background: rgba(244,63,94,.1); border: 1px solid rgba(251,113,133,.25); color: #fecdd3; }
+
+.controls { display: flex; gap: 10px; margin-top: 10px; }
+.btn {
+    border: 0; border-radius: 10px; padding: 10px 16px; font-weight: 800; font-size: 13px; color: white;
+    background: linear-gradient(135deg, #0891b2, #2563eb); transition: .2s;
+}
+.btn:hover { transform: translateY(-1px); }
+.btn.secondary { background: rgba(51,65,85,.8); }
+.btn.success { background: linear-gradient(135deg, #059669, #10b981); }
+
+.path-layout, .builder, .link-game, .attributes { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.path-box, .tree-box, .attribute-box, .link-card { background: rgba(2, 6, 23, .35); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+.path-box h4, .tree-box h4, .attribute-box h4, .link-card h3 { margin: 0 0 8px; font-size: 14px; }
+.file-tree { font-family: Consolas, monospace; font-size: 12px; line-height: 1.6; }
+.tree-item { padding-left: 10px; }
+.folder { color: #facc15; }
+.file { color: #7dd3fc; }
+.tree-root { color: #a78bfa; font-weight: bold; }
+.path-input { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--line); background: #020617; color: #e2e8f0; margin: 8px 0; font-size: 13px; }
+.drop-zone { min-height: 140px; border: 2px dashed rgba(56,189,248,.25); border-radius: 12px; padding: 10px; }
+.node-pool { display: grid; gap: 6px; }
+.node { padding: 8px; border-radius: 8px; background: rgba(30,41,59,.8); border: 1px solid var(--line); font-size: 12px; cursor: grab; }
+.placed { padding: 6px 8px; margin: 4px 0; border-radius: 6px; background: rgba(30,64,95,.5); font-size: 12px; }
+.file-selector { display: grid; gap: 6px; }
+.file-select { padding: 8px 10px; border-radius: 8px; background: rgba(30,41,59,.7); border: 1px solid var(--line); color: white; text-align: left; font-size: 12px; }
+.file-select.selected { border-color: var(--blue); background: rgba(14,116,144,.15); }
+
+.link-option {
+    width: 100%; padding: 8px 10px; margin-top: 6px; border-radius: 8px;
+    background: rgba(30, 41, 59, .7); border: 1px solid var(--line);
+    color: white; text-align: left; font-size: 12px; cursor: pointer; transition: all 0.2s ease;
+}
+.link-option:hover { border-color: rgba(56, 189, 248, .45); background: rgba(30, 64, 95, .6); }
+.link-option.selected {
+    border-color: var(--blue) !important;
+    background: rgba(14, 116, 144, .3) !important;
+    box-shadow: 0 0 10px rgba(56, 189, 248, .3);
+    font-weight: bold;
+}
+
+.final { text-align: center; padding: 10px; }
+.final-icon { font-size: 40px; }
+.final h2 { font-size: 24px; margin: 5px 0; }
+.final-score { font-size: 36px; font-weight: 900; color: var(--cyan); margin: 10px 0; }
+.badges { display: flex; justify-content: center; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.badge-final { padding: 6px 10px; border-radius: 8px; background: rgba(30,41,59,.8); border: 1px solid var(--line); font-size: 11px; }
+
+/* Обновленный стиль для результатов по разделам */
+.results-summary {
+    margin-top: 15px; text-align: center;
+    background: rgba(2, 6, 23, 0.6); border: 1px solid var(--line); border-radius: 12px; padding: 16px;
+}
+.results-row {
+    display: flex; justify-content: space-around; align-items: center; gap: 10px; font-size: 15px; font-weight: bold;
+}
+.result-correct-box { color: var(--green); }
+.result-wrong-box { color: var(--red); }
+
+@media(max-width: 768px) {
+    .header { flex-direction: column; align-items: flex-start; gap: 5px; }
+    .stats { width: 100%; justify-content: space-between; }
+    .levels { grid-template-columns: repeat(5, 1fr); }
+    .level-name { display: none; }
+    .path-layout, .builder, .link-game, .attributes { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+
+<body>
+
+<div class="modal-overlay" id="startModal">
+    <div class="modal-card">
+        <h2>Вітаємо у грі! 💾</h2>
+        <p>Введіть ваше ПІБ для початку проходження та формування підсумкової оцінки:</p>
+        <input type="text" id="userNameInput" class="start-input" placeholder="Прізвище, Ім'я, По батькові" required>
+        <button class="btn success" style="width: 100%;" id="startBtn">Почати тестування</button>
+    </div>
+</div>
+
+<div class="app">
+    <header class="header">
+        <div class="logo">
+            <div class="logo-icon">💾</div>
+            <div>
+                <h1>FILE SYSTEM</h1>
+                <p>ВРЯТУЙ ДИСК • інтерактивна гра</p>
+            </div>
+        </div>
+
+        <div class="user-display" id="userDisplayName"></div>
+
+        <div class="stats">
+            <div class="stat">
+                <span class="stat-label">XP</span>
+                <span class="stat-value" id="xp">0</span>
+            </div>
+            <div class="stat">
+                <span class="stat-label">❤️ Життя</span>
+                <span class="stat-value" id="lives">3</span>
+            </div>
+            <div class="stat">
+                <span class="stat-label">⏱ Час</span>
+                <span class="stat-value" id="timer">00:00</span>
+            </div>
+        </div>
+    </header>
+
+    <div class="progress-wrap">
+        <div class="progress-top">
+            <span id="progressText">Рівень 1 із 5</span>
+            <span id="progressPercent">0%</span>
+        </div>
+        <div class="progress">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+    </div>
+
+    <div class="levels">
+        <div class="level active" id="levelTab0"><span class="level-num">01</span><span class="level-name">ФАЙЛИ</span></div>
+        <div class="level" id="levelTab1"><span class="level-num">02</span><span class="level-name">СТРУКТУРА</span></div>
+        <div class="level" id="levelTab2"><span class="level-num">03</span><span class="level-name">ШЛЯХИ</span></div>
+        <div class="level" id="levelTab3"><span class="level-num">04</span><span class="level-name">ЗВ'ЯЗКИ</span></div>
+        <div class="level" id="levelTab4"><span class="level-num">05</span><span class="level-name">АТРИБУТИ</span></div>
+    </div>
+
+    <main class="game-card" id="game"></main>
+</div>
+
+<script>
+const game = {
+    userName: "",
+    level: 0,
+    question: 0,
+    xp: 0,
+    lives: 3,
+    correctCount: 0,
+    startTime: Date.now(),
+    timer: null,
+    missionDone: [false, false, false, false, false],
+    totalTasks: 30, // 25 питань + 5 міні-місій = 30 балів макс
+    correctList: [],
+    wrongList: []
+};
+
+const level1Questions = [
+    { q: "Що таке файл?", answers: ["Сукупність даних, організованих як одна структура та доступних за ім'ям", "Тільки папка на диску", "Програма для запуску Windows", "Фізична частина процесора"], correct: 0, info: "Файл — це набір даних, організованих як одна структура та доступних за іменем." },
+    { q: "Що називають файловою системою?", answers: ["Програму для створення документів", "Набір правил взаємодії користувача з вторинною пам'яттю", "Тільки список папок", "Антивірусну програму"], correct: 1, info: "Файлова система є підсистемою ОС і визначає правила роботи з даними на накопичувачі." },
+    { q: "Який файл належить до ззвичайних?", answers: ["Файл із даними користувача", "Каталог", "Символічне посилання", "Тільки розділ диска"], correct: 0, info: "Звичайні файли містять дані користувача, системні дані або програмний код." },
+    { q: "Яка особливість прямого доступу до файлу?", answers: ["Дані можна читати та записувати у довільному порядку", "Дані можна читати тільки з початку", "Файл можна тільки видалити", "Файл не має імені"], correct: 0, info: "За прямого доступу можна звернутися до потрібної частини файлу без послідовного проходження всіх попередніх даних." },
+    { q: "Який тип доступу передбачає послідовне проходження даних?", answers: ["Прямий", "Послідовний", "Графічний", "Системний"], correct: 1, info: "При послідовному доступі дані обробляються послідовно." },
+    { q: "Який символ заборонено використовувати в іменах файлів Windows?", answers: [":", "_", "-", "."], correct: 0, info: "У Windows двокрапка ':' має спеціальне значення та не використовується у звичайних іменах файлів." }
+];
+
+const level2Questions = [
+    { q: "Що таке розділ диска?", answers: ["Частина фізичного дискового простору, призначена для однієї файлової системи", "Окремий файл", "Назва кореневого каталогу", "Посилання на файл"], correct: 0, info: "Розділ — логічно цілісна частина фізичного дискового простору." },
+    { q: "Що може містити каталог?", answers: ["Тільки файли", "Тільки інші каталоги", "Файли та інші каталоги", "Тільки системні файли"], correct: 2, info: "Каталог може містити файли та вкладені каталоги." },
+    { q: "Яка структура найкраще описує організацію каталогів?", answers: ["Лінійна", "Деревоподібна", "Кругова", "Випадкова"], correct: 1, info: "Каталоги організовуються у вигляді дерева." },
+    { q: "Що є мінімальною доступною одиницею даних у файловій системі?", answers: ["Розділ", "Каталог", "Файл", "Диск"], correct: 2, info: "Файл є мінімальною одиницею даних, до якої можна звернутися." },
+    { q: "Що описує зв'язок між іменем файлу та областю диска?", answers: ["Каталог", "Процесор", "Монітор", "Клавіатура"], correct: 0, info: "Каталог концептуально можна розглядати як таблицю відповідностей між іменами та областями диска." }
+];
+
+const level3Questions = [
+    { q: "Який шлях є абсолютним у Windows?", answers: ["Documents\\report.docx", "..\\report.docx", "C:\\Documents\\report.docx", ".\\report.docx"], correct: 2, info: "Абсолютний шлях починається від кореня файлової системи." },
+    { q: "Що означає символ '.' у шляху?", answers: ["Кореневий каталог", "Поточний каталог", "Батьківський каталог", "Прихований файл"], correct: 1, info: "'.' позначає поточний каталог." },
+    { q: "Що означає '..'?", answers: ["Поточний каталог", "Кореневий каталог", "Батьківський каталог", "Файл системи"], correct: 2, info: "'..' означає батьківський каталог." },
+    { q: "Який роздільник шляхів використовується у Windows?", answers: ["/", "\\", ":", "#"], correct: 1, info: "У Windows традиційно використовується '\\'." },
+    { q: "Для чого використовується PATH?", answers: ["Для пошуку файлів у визначених каталогах", "Для форматування диска", "Для створення резервних копій", "Для зміни розміру файлу"], correct: 0, info: "PATH містить перелік каталогів, у яких операційна система шукає файли." }
+];
+
+const level4Questions = [
+    { q: "Що характерно для жорсткого посилання?", answers: ["Декілька імен можуть посилатися на один файл", "Воно завжди є окремою копією файлу", "Воно працює тільки з каталогами", "Воно не пов'язане з файлом"], correct: 0, info: "Жорсткі посилання можуть мати різні імена, але посилатися на один і той самий файл." },
+    { q: "Коли файл вважається видаленим при використанні жорстких посилань?", answers: ["Після видалення першого посилання", "Після видалення всіх жорстких посилань", "Після перезавантаження ПК", "Після зміни імені"], correct: 1, info: "Файл залишається доступним, доки існує хоча б одне жорстке посилання." },
+    { q: "Що таке символічне посилання?", answers: ["Спеціальний файл, який посилається на інший об'єкт", "Повна копія файлу", "Розділ диска", "Каталог без імені"], correct: 0, info: "Символічне посилання є спеціальним файлом, який посилається на інший об'єкт." },
+    { q: "Яке посилання фактично створює ще одне ім'я для того самого файлу?", answers: ["Жорстке", "Символічне", "Графічне", "Мережеве"], correct: 0, info: "Жорстке посилання є ще одним ім'ям того самого файлу." }
+];
+
+const level5Questions = [
+    { q: "Який атрибут означає, що файл прихований?", answers: ["Hidden", "Archive", "Owner", "Password"], correct: 0, info: "Hidden — атрибут прихованого файлу." },
+    { q: "Що означає атрибут Read-only?", answers: ["Файл доступний тільки для читання", "Файл прихований", "Файл зашифрований", "Файл видалений"], correct: 0, info: "Read-only означає режим лише для читання." },
+    { q: "Який атрибут пов'язаний з архівацією?", answers: ["Archive", "Hidden", "Owner", "Password"], correct: 0, info: "Archive — атрибут, пов'язаний з архівацією файлів." },
+    { q: "Що може зберігати Creation time?", answers: ["Час створення файлу", "Максимальний розмір", "Позицію ключа", "Ім'я каталогу"], correct: 0, info: "Creation time зберігає час створення файлу." },
+    { q: "Який атрибут описує поточний розмір файлу?", answers: ["Current size", "Key length", "Record length", "Protection"], correct: 0, info: "Current size — поточний розмір файлу." }
+];
+
+const allLevels = [level1Questions, level2Questions, level3Questions, level4Questions, level5Questions];
+
+const gameEl = document.getElementById("game");
+const xpEl = document.getElementById("xp");
+const livesEl = document.getElementById("lives");
+const timerEl = document.getElementById("timer");
+
+function levelTitle(level) {
+    const titles = [
+        ["ФАЙЛИ", "Розберись із базовими поняттями файлової системи."],
+        ["СТРУКТУРА", "Побудуй правильну організацію каталогів та файлів."],
+        ["ШЛЯХИ", "Навчися знаходити файли за шляхами."],
+        ["ЗВ'ЯЗКИ", "Розрізняй жорсткі та символічні посилання."],
+        ["АТРИБУТИ", "Стань файловим детективом та знаходь файли за атрибутами."]
+    ];
+    return titles[level];
+}
+
+function updateStats() {
+    xpEl.textContent = game.xp;
+    livesEl.textContent = game.lives;
+    const completedQuestions = allLevels.slice(0, game.level).reduce((sum, level) => sum + level.length, 0) + game.question;
+    const missionBonus = game.missionDone.filter(Boolean).length;
+    const completed = completedQuestions + missionBonus;
+    const percent = Math.min(100, Math.round((completed / game.totalTasks) * 100));
+
+    document.getElementById("progressBar").style.width = percent + "%";
+    document.getElementById("progressPercent").textContent = percent + "%";
+    document.getElementById("progressText").textContent = game.level < 5 ? `Рівень ${game.level + 1} із 5` : "МІСІЮ ЗАВЕРШЕНО";
+}
+
+function updateLevelTabs() {
+    for(let i = 0; i < 5; i++) {
+        const tab = document.getElementById("levelTab" + i);
+        tab.classList.remove("active", "done");
+        if(i < game.level) tab.classList.add("done");
+        if(i === game.level && game.level < 5) tab.classList.add("active");
+    }
+}
+
+function addXP(amount) {
+    game.xp += amount;
+    updateStats();
+}
+
+function loseLife() {
+    game.lives--;
+    updateStats();
+    if(game.lives <= 0) {
+        showGameOver();
+        return true;
+    }
+    return false;
+}
+
+function renderQuestion() {
+    const questions = allLevels[game.level];
+    const current = questions[game.question];
+    const title = levelTitle(game.level);
+
+    gameEl.innerHTML = `
+        <div>
+            <div class="level-header">
+                <div>
+                    <h2>${title[0]}</h2>
+                    <p>${title[1]}</p>
+                </div>
+                <div class="badge">+20 XP</div>
+            </div>
+
+            <div class="question">
+                <div class="question-number">ЗАВДАННЯ ${game.question + 1} / ${questions.length}</div>
+                <h3>${current.q}</h3>
+                <div class="answers">
+                    ${current.answers.map((answer,index)=>`
+                        <button class="answer" data-index="${index}">
+                            <strong>${String.fromCharCode(65 + index)}.</strong>${answer}
+                        </button>
+                    `).join("")}
+                </div>
+                <div id="feedback" class="feedback"></div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn secondary" id="hintBtn">💡 Підказка</button>
+        </div>
+    `;
+
+    document.querySelectorAll(".answer").forEach(btn => {
+        btn.onclick = () => checkAnswer(Number(btn.dataset.index), current);
+    });
+
+    document.getElementById("hintBtn").onclick = () => showHint(current);
+}
+
+function checkAnswer(index, question) {
+    const buttons = document.querySelectorAll(".answer");
+    buttons.forEach(btn => btn.classList.add("disabled"));
+    const feedback = document.getElementById("feedback");
+
+    if(index === question.correct) {
+        buttons[index].classList.add("correct");
+        game.correctCount++;
+        addXP(20);
+
+        game.correctList.push({
+            q: question.q,
+            userAns: question.answers[index]
+        });
+
+        feedback.className = "feedback correct show";
+        feedback.innerHTML = `✓ <strong>Правильно!</strong> ${question.info}`;
+    } else {
+        buttons[index].classList.add("wrong");
+        buttons[question.correct].classList.add("correct");
+
+        game.wrongList.push({
+            q: question.q,
+            userAns: question.answers[index],
+            correctAns: question.answers[question.correct],
+            info: question.info
+        });
+
+        const noLives = loseLife();
+        if(noLives) return;
+
+        feedback.className = "feedback wrong show";
+        feedback.innerHTML = `✗ <strong>Не зовсім.</strong> ${question.info}`;
+    }
+
+    const controls = document.querySelector(".controls");
+    const nextButton = document.createElement("button");
+    nextButton.className = "btn";
+    nextButton.textContent = game.question === allLevels[game.level].length - 1 ? "До міні-місії →" : "Наступне завдання →";
+    nextButton.onclick = nextQuestion;
+    controls.appendChild(nextButton);
+}
+
+function nextQuestion() {
+    game.question++;
+    if(game.question >= allLevels[game.level].length) {
+        if(!game.missionDone[game.level]) {
+            renderMissionForCurrentLevel();
+            return;
+        }
+    }
+    updateStats();
+    updateLevelTabs();
+    renderQuestion();
+}
+
+function renderMissionForCurrentLevel() {
+    if(game.level === 0) renderFileMission();
+    else if(game.level === 1) renderStructureMission();
+    else if(game.level === 2) renderPathMission();
+    else if(game.level === 3) renderLinksMission();
+    else if(game.level === 4) renderAttributesMission();
+}
+
+function renderFileMission() {
+    gameEl.innerHTML = `
+        <div>
+            <div class="level-header">
+                <div>
+                    <h2>🕵️ ФАЙЛОВИЙ ДЕТЕКТИВ</h2>
+                    <p>Обери звичайний файл з даними користувача.</p>
+                </div>
+                <div class="badge">DETECTIVE</div>
+            </div>
+
+            <div class="attributes">
+                <div class="attribute-box">
+                    <h4>🔍 Об'єкти</h4>
+                    <div class="file-selector">
+                        <button class="file-select" data-answer="wrong" data-name="📁 Documents">📁 Documents</button>
+                        <button class="file-select" data-answer="correct" data-name="📄 report.docx">📄 report.docx</button>
+                        <button class="file-select" data-answer="wrong" data-name="🔗 report-link">🔗 report-link</button>
+                        <button class="file-select" data-answer="wrong" data-name="💾 C:\\">💾 C:\\</button>
+                    </div>
+                </div>
+
+                <div class="attribute-box">
+                    <h4>🎯 Завдання</h4>
+                    <p style="color:#94a3b8;font-size:12px;">Який об'єкт є звичайним файлом?</p>
+                    <div id="detectiveFeedback" class="feedback"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn success" id="detectiveCheck">🔎 Перевірити</button>
+        </div>
+    `;
+
+    let selectedBtn = null;
+    document.querySelectorAll(".file-select").forEach(button => {
+        button.onclick = () => {
+            document.querySelectorAll(".file-select").forEach(x => x.classList.remove("selected"));
+            button.classList.add("selected");
+            selectedBtn = button;
+        };
+    });
+
+    document.getElementById("detectiveCheck").onclick = () => {
+        const feedback = document.getElementById("detectiveFeedback");
+        if(!selectedBtn) {
+            feedback.className = "feedback wrong show";
+            feedback.textContent = "Спочатку обери об'єкт.";
+            return;
+        }
+
+        const selected = selectedBtn.dataset.answer;
+        const name = selectedBtn.dataset.name;
+
+        if(selected === "correct") {
+            feedback.className = "feedback correct show";
+            feedback.innerHTML = `✓ <strong>Правильно!</strong> report.docx — файл даних.`;
+            game.missionDone[0] = true;
+            game.correctCount++;
+            game.correctList.push({ q: "Міні-місія 1: Обрати звичайний файл", userAns: name });
+            addXP(40);
+            setTimeout(() => { game.level = 1; game.question = 0; updateStats(); updateLevelTabs(); renderQuestion(); }, 1200);
+        } else {
+            feedback.className = "feedback wrong show";
+            feedback.innerHTML = `✗ Це не звичайний файл.`;
+            game.wrongList.push({
+                q: "Міні-місія 1: Обрати звичайний файл",
+                userAns: name,
+                correctAns: "report.docx",
+                info: "report.docx є звичайним файлом користувача."
+            });
+            loseLife();
+        }
+    };
+}
+
+function renderStructureMission() {
+    gameEl.innerHTML = `
+        <div>
+            <div class="level-header">
+                <div>
+                    <h2>📁 ВІДНОВЛЕННЯ ДИСКА</h2>
+                    <p>Перетягни всі елементи в диск C:\\</p>
+                </div>
+                <div class="badge">+60 XP</div>
+            </div>
+
+            <div class="builder">
+                <div class="tree-box">
+                    <h4>🧩 Елементи</h4>
+                    <div class="node-pool">
+                        <div class="node" draggable="true" data-value="Documents">📁 Documents</div>
+                        <div class="node" draggable="true" data-value="Projects">📁 Projects</div>
+                        <div class="node" draggable="true" data-value="report.docx">📄 report.docx</div>
+                    </div>
+                </div>
+
+                <div class="tree-box">
+                    <h4>💾 C:\\</h4>
+                    <div class="drop-zone" id="structureZone">
+                        <div class="placed">💾 C:\\</div>
+                    </div>
+                </div>
+            </div>
+            <div id="treeFeedback" class="feedback"></div>
+        </div>
+
+        <div class="controls">
+            <button class="btn success" id="checkTree">🔧 Перевірити</button>
+        </div>
+    `;
+
+    const zone = document.getElementById("structureZone");
+    document.querySelectorAll(".node").forEach(node => {
+        node.addEventListener("dragstart", e => e.dataTransfer.setData("text/plain", node.dataset.value));
+    });
+
+    zone.addEventListener("dragover", e => e.preventDefault());
+    zone.addEventListener("drop", e => {
+        e.preventDefault();
+        const value = e.dataTransfer.getData("text/plain");
+        if(!value) return;
+        const el = document.createElement("div");
+        el.className = "placed";
+        el.dataset.value = value;
+        el.textContent = value.includes(".") ? "📄 " + value : "📁 " + value;
+        zone.appendChild(el);
+    });
+
+    document.getElementById("checkTree").onclick = () => {
+        const values = [...zone.querySelectorAll(".placed")].map(x => x.dataset.value);
+        const feedback = document.getElementById("treeFeedback");
+
+        if(values.length >= 4) {
+            feedback.className = "feedback correct show";
+            feedback.innerHTML = `✓ <strong>Відновлено!</strong>`;
+            game.missionDone[1] = true;
+            game.correctCount++;
+            game.correctList.push({ q: "Міні-місія 2: Відновлення диска C:\\", userAns: "Розміщено всі елементи" });
+            addXP(60);
+            setTimeout(() => { game.level = 2; game.question = 0; updateStats(); updateLevelTabs(); renderQuestion(); }, 1200);
+        } else {
+            feedback.className = "feedback wrong show";
+            feedback.innerHTML = `✗ Додай усі елементи на диск.`;
+            game.wrongList.push({
+                q: "Міні-місія 2: Відновлення диска C:\\",
+                userAns: "Не всі елементи перетягнуто",
+                correctAns: "Перетягнути Documents, Projects, report.docx",
+                info: "На диск C:\\ потрібно розмістити всі запропоновані файли та каталоги."
+            });
+            loseLife();
+        }
+    };
+}
+
+function renderPathMission() {
+    gameEl.innerHTML = `
+        <div>
+            <div class="level-header">
+                <div>
+                    <h2>🗺️ НАВІГАТОР ШЛЯХІВ</h2>
+                    <p>Введіть абсолютний шлях до Main.java</p>
+                </div>
+            </div>
+
+            <div class="path-layout">
+                <div class="tree-box">
+                    <div class="file-tree">
+                        <div class="tree-root">💾 C:\\</div>
+                        <div class="tree-item folder">└─ 📁 Projects</div>
+                        <div class="tree-item folder">&nbsp;&nbsp;&nbsp;└─ 📁 Java</div>
+                        <div class="tree-item file">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└─ 📄 Main.java</div>
+                    </div>
+                </div>
+
+                <div class="path-box">
+                    <input id="pathInput" class="path-input" placeholder="C:\\Projects\\Java\\Main.java">
+                    <div id="pathFeedback" class="feedback"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn success" id="checkPath">🔓 Розблокувати</button>
+        </div>
+    `;
+
+    document.getElementById("checkPath").onclick = () => {
+        const input = document.getElementById("pathInput").value.trim().replaceAll("/", "\\");
+        const feedback = document.getElementById("pathFeedback");
+
+        if(input.toLowerCase() === "c:\\projects\\java\\main.java") {
+            feedback.className = "feedback correct show";
+            feedback.innerHTML = `✓ <strong>Шлях вірний!</strong>`;
+            game.missionDone[2] = true;
+            game.correctCount++;
+            game.correctList.push({ q: "Міні-місія 3: Ввести абсолютний шлях", userAns: input });
+            addXP(60);
+            setTimeout(() => { game.level = 3; game.question = 0; updateStats(); updateLevelTabs(); renderQuestion(); }, 1200);
+        } else {
+            feedback.className = "feedback wrong show";
+            feedback.innerHTML = `✗ Неправильний шлях. Формат: C:\\Projects\\...`;
+            game.wrongList.push({
+                q: "Міні-місія 3: Ввести абсолютний шлях",
+                userAns: input || "Порожній шлях",
+                correctAns: "C:\\Projects\\Java\\Main.java",
+                info: "Абсолютний шлях повинен містити повний ланцюжок від кореневого диска."
+            });
+            loseLife();
+        }
+    };
+}
+
+function renderLinksMission() {
+    gameEl.innerHTML = `
+        <div>
+            <div class="level-header">
+                <h2>🔗 ЦЕНТР ЗВ'ЯЗКІВ</h2>
+                <p>Визначте типи посилань для кожної схеми</p>
+            </div>
+
+            <div class="link-game">
+                <div class="link-card">
+                    <h3>🔗 Схема A</h3>
+                    <p style="font-size:11px; color: var(--muted);">2 імені вказують на один файл на диску.</p>
+                    <button class="link-option" data-answer="hard">Жорстке посилання</button>
+                    <button class="link-option" data-answer="symbolic">Символічне посилання</button>
+                </div>
+
+                <div class="link-card">
+                    <h3>↗ Схема B</h3>
+                    <p style="font-size:11px; color: var(--muted);">Спеціальний файл-вказівник на інший об'єкт.</p>
+                    <button class="link-option" data-answer="hard">Жорстке посилання</button>
+                    <button class="link-option" data-answer="symbolic">Символічне посилання</button>
+                </div>
+            </div>
+            <div id="linkFeedback" class="feedback"></div>
+        </div>
+
+        <div class="controls">
+            <button class="btn success" id="finishLinks">Перевірити</button>
+        </div>
+    `;
+
+    document.querySelectorAll(".link-card").forEach(card => {
+        const options = card.querySelectorAll(".link-option");
+        options.forEach(btn => {
+            btn.onclick = () => {
+                options.forEach(opt => opt.classList.remove("selected"));
+                btn.classList.add("selected");
+            };
+        });
+    });
+
+    document.getElementById("finishLinks").onclick = () => {
+        const cards = document.querySelectorAll(".link-card");
+        const answerA = cards[0].querySelector(".link-option.selected")?.dataset.answer;
+        const answerB = cards[1].querySelector(".link-option.selected")?.dataset.answer;
+        const feedback = document.getElementById("linkFeedback");
+
+        if(!answerA || !answerB) {
+            feedback.className = "feedback wrong show";
+            feedback.textContent = "Будь ласка, зробіть вибір у обох схемах!";
+            return;
+        }
+
+        if (answerA === "hard" && answerB === "symbolic") {
+            feedback.className = "feedback correct show";
+            feedback.innerHTML = `✓ <strong>Вірно!</strong> Схема A — жорстке посилання, Схема B — символічне.`;
+            game.missionDone[3] = true;
+            game.correctCount++;
+            game.correctList.push({ q: "Міні-місія 4: Розрізнити типи посилань", userAns: "Схема A: Жорстке, Схема B: Символічне" });
+            addXP(70);
+            setTimeout(() => { game.level = 4; game.question = 0; updateStats(); updateLevelTabs(); renderQuestion(); }, 1200);
+        } else {
+            feedback.className = "feedback wrong show";
+            feedback.innerHTML = `✗ Невірно. Подумайте, яке посилання створює додаткове ім'я, а яке є вказівником.`;
+            game.wrongList.push({
+                q: "Міні-місія 4: Розрізнити типи посилань",
+                userAns: `Схема A: ${answerA === 'hard' ? 'Жорстке' : 'Символічне'}, Схема B: ${answerB === 'hard' ? 'Жорстке' : 'Символічне'}`,
+                correctAns: "Схема A — Жорстке, Схема B — Символічне",
+                info: "Жорсткі посилання вказують на ті самі дані, а символічні є окремим файлом-вказівником."
+            });
+            loseLife();
+        }
+    };
+}
+
+function renderAttributesMission() {
+    gameEl.innerHTML = `
+        <div>
+            <div class="level-header">
+                <h2>🕵️ АТРИБУТИ</h2>
+                <p>Знайди файл з Hidden = Так, Read-only = Так</p>
+            </div>
+
+            <div class="attributes">
+                <div class="attribute-box">
+                    <div class="file-selector">
+                        <button class="file-select" data-file="sys">⚙️ config.sys</button>
+                        <button class="file-select" data-file="txt">📄 notes.txt</button>
+                    </div>
+                </div>
+
+                <div class="attribute-box">
+                    <div id="attrBox" style="font-size:12px;">Обери файл</div>
+                </div>
+            </div>
+            <div id="attributeFeedback" class="feedback"></div>
+        </div>
+
+        <div class="controls">
+            <button class="btn success" id="attributeCheck">Перевірити</button>
+        </div>
+    `;
+
+    let selected = null;
+    document.querySelectorAll(".file-select").forEach(b => {
+        b.onclick = () => {
+            document.querySelectorAll(".file-select").forEach(x => x.classList.remove("selected"));
+            b.classList.add("selected");
+            selected = b.dataset.file;
+            document.getElementById("attrBox").innerHTML = selected === "sys" ? "Hidden: Так<br>Read-only: Так" : "Hidden: Ні<br>Read-only: Ні";
+        };
+    });
+
+    document.getElementById("attributeCheck").onclick = () => {
+        const feedback = document.getElementById("attributeFeedback");
+        if(selected === "sys") {
+            feedback.className = "feedback correct show";
+            feedback.innerHTML = `✓ <strong>Справу розкрито!</strong>`;
+            game.missionDone[4] = true;
+            game.correctCount++;
+            game.correctList.push({ q: "Міні-місія 5: Пошук за атрибутами", userAns: "config.sys" });
+            addXP(100);
+            setTimeout(() => showFinal(), 1200);
+        } else {
+            feedback.className = "feedback wrong show";
+            feedback.innerHTML = `✗ Не той файл.`;
+            game.wrongList.push({
+                q: "Міні-місія 5: Пошук за атрибутами",
+                userAns: "notes.txt",
+                correctAns: "config.sys",
+                info: "config.sys має атрибути Прихований (Hidden) і Тільки для читання (Read-only)."
+            });
+            loseLife();
+        }
+    };
+}
+
+function showHint(question) {
+    const feedback = document.getElementById("feedback");
+    if(!feedback) return;
+    feedback.className = "feedback show";
+    feedback.style.background = "rgba(250,204,21,.08)";
+    feedback.style.color = "#fde68a";
+    feedback.innerHTML = `💡 <strong>Підказка:</strong> ${question.info.split(".")[0]}.`;
+}
+
+function calculate100Score() {
+    return Math.min(100, Math.max(0, Math.round((game.correctCount / game.totalTasks) * 100)));
+}
+
+// Отображение только количества верных и неверных ответов в финальном окне
+function renderDetailedResultsHTML() {
+    return `
+        <div class="results-summary">
+            <div class="results-row">
+                <div class="result-correct-box">✓ Правильних відповідей: ${game.correctList.length}</div>
+                <div class="result-wrong-box">✗ Неправильних відповідей: ${game.wrongList.length}</div>
+            </div>
+        </div>
+    `;
+}
+
+function sendResultToEmail(score100, timeFormatted, statusText) {
+    const mistakesFormatted = game.wrongList.length > 0 
+        ? game.wrongList.map((m, i) => `${i+1}. ${m.q}\n   Студент: ${m.userAns}\n   Правильно: ${m.correctAns}`).join("\n\n")
+        : "Помилок немає! Все виконано ідеально.";
+
+    fetch("https://formspree.io/f/moevpkvr", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        body: JSON.stringify({
+            student_name: game.userName,
+            score_100: score100 + " / 100 балів",
+            xp: game.xp,
+            time: timeFormatted,
+            status: statusText,
+            correct_count: game.correctCount + " із " + game.totalTasks,
+            mistakes_detail: mistakesFormatted
+        })
+    })
+    .then(res => {
+        const emailStatus = document.getElementById("emailStatus");
+        if(res.ok) {
+            if(emailStatus) emailStatus.innerHTML = "✓ Результати успішно збережено та відправлено викладачу.";
+        } else {
+            if(emailStatus) emailStatus.innerHTML = "⚠️ Помилка надсилання форми Formspree.";
+        }
+    })
+    .catch(() => {
+        const emailStatus = document.getElementById("emailStatus");
+        if(emailStatus) emailStatus.innerHTML = "⚠️ Мережева помилка при відправці реквізитів.";
+    });
+}
+
+function showGameOver() {
+    clearInterval(game.timer);
+    const seconds = Math.floor((Date.now() - game.startTime) / 1000);
+    const timeFormatted = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2,"0")}`;
+    const score100 = calculate100Score();
+
+    sendResultToEmail(score100, timeFormatted, "СИСТЕМА ПОШКОДЖЕНА (Game Over)");
+
+    gameEl.innerHTML = `
+        <div class="final">
+            <div class="final-icon">⚠️</div>
+            <h2>СИСТЕМА ПОШКОДЖЕНА</h2>
+            <p style="color:#94a3b8;">Студент: ${game.userName}</p>
+            <div class="final-score">${score100} / 100 балів</div>
+            
+            ${renderDetailedResultsHTML()}
+
+            <p id="emailStatus" style="color:#94a3b8;font-size:11px;margin-top:10px;">Відправка результатів...</p>
+            <button class="btn" onclick="location.reload()" style="margin-top:10px;">🔄 Спробувати ще раз</button>
+        </div>
+    `;
+}
+
+function showFinal() {
+    clearInterval(game.timer);
+    const seconds = Math.floor((Date.now() - game.startTime) / 1000);
+    const timeFormatted = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2,"0")}`;
+    const score100 = calculate100Score();
+
+    sendResultToEmail(score100, timeFormatted, "ДИСК ВРЯТОВАНО (Завершено)");
+
+    gameEl.innerHTML = `
+        <div class="final">
+            <div class="final-icon">💾</div>
+            <h2>ДИСК ВРЯТОВАНО!</h2>
+            <p style="color:#94a3b8;">Студент: ${game.userName}</p>
+
+            <div class="final-score">${score100} / 100 балів</div>
+
+            <div class="badges">
+                <div class="badge-final">⚡ XP: ${game.xp}</div>
+                <div class="badge-final">⏱ Час: ${timeFormatted}</div>
+            </div>
+
+            ${renderDetailedResultsHTML()}
+
+            <p id="emailStatus" style="color:#34d399;font-size:11px;margin-top:10px;">Відправка результатів...</p>
+            <button class="btn" onclick="location.reload()" style="margin-top:10px;">🔄 Пройти ще раз</button>
+        </div>
+    `;
+}
+
+function startTimer() {
+    game.timer = setInterval(() => {
+        const seconds = Math.floor((Date.now() - game.startTime) / 1000);
+        timerEl.textContent = `${String(Math.floor(seconds / 60)).padStart(2,"0")}:${String(seconds % 60).padStart(2,"0")}`;
+    }, 1000);
+}
+
+document.getElementById("startBtn").onclick = () => {
+    const nameInput = document.getElementById("userNameInput").value.trim();
+    if(!nameInput) {
+        alert("Введіть ПІБ!");
+        return;
+    }
+    game.userName = nameInput;
+    document.getElementById("userDisplayName").textContent = "👤 " + nameInput;
+    document.getElementById("startModal").style.display = "none";
+
+    game.startTime = Date.now();
+    updateStats();
+    updateLevelTabs();
+    renderQuestion();
+    startTimer();
+};
+</script>
+
+</body>
+</html>
